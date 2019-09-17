@@ -1,0 +1,1 @@
+pyuic4 PDTMainWindow.ui  -o PDTMainWindow.py
