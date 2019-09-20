@@ -1,8 +1,5 @@
 import cv2 as cv
 import numpy as np
-import matplotlib.pyplot as plt
-import tkinter
-import tkinter.messagebox as mb
 
 BTN_ESC = 27
 BTN_CTRL_C = 3
@@ -14,8 +11,6 @@ maxAllowedIntensity = 252
 numHighIntensity = 230
 maxAllowedNumberHighIntensityPixels = 30
 GaussKernel = (5, 5)
-
-# from tkinter import ttk
 
 
 # pict = cutHighIntensityPoints()
@@ -34,8 +29,8 @@ def thresholdOtsu(pict):
 
 # WRAPPER
 def getPictTrue(name, i, wl):
-    pictFluo = cv.imread('Test\\' + name + str(i) + '_' + str(wl) + '.tiff', cv.IMREAD_GRAYSCALE)
-    pictNull = cv.imread('Test\\' + name + str(i) + '_0.tiff', cv.IMREAD_GRAYSCALE)
+    pictFluo = cv.imread(name + str(i) + '_' + str(wl) + '.tiff', cv.IMREAD_GRAYSCALE)
+    pictNull = cv.imread(name + str(i) + '_0.tiff', cv.IMREAD_GRAYSCALE)
     return pictFluo - pictNull
 
 
@@ -43,6 +38,7 @@ def getPictTrue(name, i, wl):
 def showPict(pict, winName):
     pictShow = (pict * (maxIntensity / max(max(pict), 1))).astype(np.uint8)
     cv.imshow(winName, pictShow)
+
 
 # WRAPPER
 def trackContourPyrLK(pictPrev, pictNext, ptsPrev, winSize, maxLevel):
@@ -55,7 +51,7 @@ def trackContourPyrLK(pictPrev, pictNext, ptsPrev, winSize, maxLevel):
 # WRAPPER
 def getIntensityInsideContour(pict, cont):
     mskCont = cv.fillPoly(np.zeros(pict.shape, np.uint8), [cont], 1)
-    intensity = np.sum(pict[0] * mskCont)
+    intensity = np.sum(pict * mskCont)
     return intensity, intensity / max(np.sum(mskCont), 1)
 
 
@@ -79,18 +75,8 @@ def getPictsThreshsConts(name, wl, begin, end):
 
         pictBlur = cv.GaussianBlur(pictTrue, GaussKernel, 0)
         vctPicts.append(pictBlur)
-        # blurshow = (blur * (255 / np.max(blur))).astype(np.uint8)
-        # cv.namedWindow('picture1', cv.WINDOW_NORMAL)
-        # cv.imshow('picture1', blurshow)
-        # cv.waitKey(0)
-        # plt.hist(blur.ravel(), 256)
-        # plt.show()
 
         pictThreshed = thresholdOtsu(pictBlur)
-        # print(m)
-        # cv.namedWindow('threshblur', cv.WINDOW_NORMAL)
-        # cv.imshow('threshblur', thgauss)
-        # cv.waitKey(0)
 
         vctThreshs.append(pictThreshed)
 
@@ -98,18 +84,7 @@ def getPictsThreshsConts(name, wl, begin, end):
 
         vctConts = vctConts + cont #если возвращается больше одного контура - не работает
 
-        # cv.namedWindow('contoured', cv.WINDOW_NORMAL)
-        # cv.imshow('contoured', cv.drawContours(cv.cvtColor(thgauss, cv.COLOR_GRAY2RGB),
-        #                                        list(cont), -1, (0, 255, 0), 3))
-        # cv.waitKey(0)
         print(str(i) + '/' + str(end))
-    #     bar['value'] = i
-    #     bar.update_idletasks()
-    # root.destroy()
-    # b = tkinter.Button(root, text='Begin', command=fbar)
-    # b.pack(side='bottom')
-    # root.lift()
-    # root.mainloop()
     return vctPicts, vctThreshs, vctConts
 
 
@@ -118,16 +93,8 @@ def showRawPicts(name, wl, begin, end):
     cv.namedWindow('picture', cv.WINDOW_NORMAL)
     for i in range(begin, end + 1):
         pictTrue = getPictTrue(name, i, wl)
-
-        # if ma1 > 252:
-        #     m, p = cv.threshold(p, 252, 255, cv.THRESH_TOZERO_INV)
-        #     ma1 = np.max(p)
-
         showPict(pictTrue, 'picture')
         cv.setWindowTitle('picture', 'picture' + str(i))
-
-        # h = plt.hist(p.ravel(), 256)
-        # plt.show()
 
         if cv.waitKey(0) == BTN_ESC:
             cv.destroyAllWindows()
@@ -149,8 +116,6 @@ def showAllPicts(name, wl, begin, end):
         showPict(pictBlur, 'picture')
         cv.setWindowTitle('picture', 'picture' + str(i))
 
-        # h = cv.calcHist(blur, [0], None, [255], [[0, 255]])
-
         pictThreshed = thresholdOtsu(pictBlur)
         cv.imshow('threshblur', pictThreshed)
         if cv.waitKey(0) == BTN_ESC:
@@ -159,10 +124,10 @@ def showAllPicts(name, wl, begin, end):
 
 
 # cont = tr2p()
-def trackOneStep(pictThreshPrev, ptsPrev, pictThreshNext, winSize, maxLevel, delta):
-    ptsNext = trackContourPyrLK(pictThreshPrev, pictThreshNext, ptsPrev, winSize, maxLevel)
+def trackOneStep(pictPrev, ptsPrev, pictNext, winSize, maxLevel, delta):
+    ptsNext = trackContourPyrLK(pictPrev, pictNext, ptsPrev, winSize, maxLevel)
 
-    ptsTrackedBack = trackContourPyrLK(pictThreshNext, pictThreshPrev, ptsNext, winSize=winSize, maxLevel=maxLevel)
+    ptsTrackedBack = trackContourPyrLK(pictNext, pictPrev, ptsNext, winSize, maxLevel)
 
     m, diff = cv.threshold(np.array([[(i ** 2 + j ** 2) ** (1 / 2)]
                                      for [i, j] in abs(ptsPrev - ptsTrackedBack).reshape(-1, 2)]),
@@ -178,7 +143,7 @@ def trackOneStep(pictThreshPrev, ptsPrev, pictThreshNext, winSize, maxLevel, del
 def trackSeriesCompare(winSize, maxLevel, delta, maxNumberBadPictures, maxDotsOut, name, wl, end, begin=1,
                        compare=False):
     vctPicts, vctThreshs, vctConts = getPictsThreshsConts(name, wl, begin, end)
-    vctPictsToShow = [(p * (maxIntensity / max(np.max(p)), 1)).astype(np.uint8) for p in vctPicts]
+    vctPictsToShow = [(p * (maxIntensity / max(np.max(p), 1))).astype(np.uint8) for p in vctPicts]
 
     cv.namedWindow('thresh', cv.WINDOW_NORMAL)
     cv.namedWindow('contoured_by', cv.WINDOW_NORMAL)
@@ -198,14 +163,14 @@ def trackSeriesCompare(winSize, maxLevel, delta, maxNumberBadPictures, maxDotsOu
         cv.imwrite('Output\\' + name + str(1) + '_' + str(wl) + '.tiff', pictToShow)
         cv.waitKey(0)
     numBadPictures = numLazeredPictures = prcTotalLost = 0
-    for i in range(1, len(vctThreshs)):
+    for i in range(1, len(vctPicts)):
         cv.setWindowTitle('contoured_by', 'contoured_by' + str(i + 1))
         
         cv.setWindowTitle('thresh', 'thresh' + str(i + 1))
         cv.imshow('thresh', vctThreshs[i])
 
         if getNumberHighIntensityPixels(vctPicts[i]) < maxAllowedNumberHighIntensityPixels:  # laser off
-            contNext = trackOneStep(vctThreshs[i - numBadPictures - numLazeredPictures - 1], contManual, vctThreshs[i],
+            contNext = trackOneStep(vctPictsToShow[i - numBadPictures - numLazeredPictures - 1], contManual, vctPictsToShow[i],
                                     winSize, maxLevel, delta)
             prcLostPoints = (contManual.shape[0] - contNext.shape[0]) * 100. / contManual.shape[0]
             if contManual.shape[0] - contNext.shape[0] <= maxDotsOut:  # everything OK, go to usual loop, null counters
@@ -245,22 +210,6 @@ def trackSeriesCompare(winSize, maxLevel, delta, maxNumberBadPictures, maxDotsOu
                                                   [contFirst], -1, CLR_RED, 3))
         if cv.waitKey(0) == BTN_CTRL_C:
             cv.imwrite('Output\\' + name + str(1) + '_' + str(wl) + '.tiff', pictToShow)
-
-# graphics of lost points during tracking
-    plt.figure(1)
-    plt.plot(range(1, len(vctIntensity)+1), vctIntensity)
-    plt.ylim(0, vctIntensity[0]*1.2)
-    plt.xlim(left=1)
-    plt.axhline(y=vctIntensity[0]*1.1, color='r', linestyle='--')
-    plt.axhline(y=vctIntensity[0]*0.9, color='r', linestyle='--')
-
-    plt.figure(2)
-    plt.plot(range(1, len(vctMean) + 1), vctMean)
-    plt.ylim(0, vctMean[0] * 1.2)
-    plt.xlim(left=1)
-    plt.axhline(y=vctMean[0] * 1.1, color='r', linestyle='--')
-    plt.axhline(y=vctMean[0] * 0.9, color='r', linestyle='--')
-    plt.show()
 
 
 # poly = [[x1,y1],...] = man_con()
