@@ -133,6 +133,7 @@ class WorkerSegmentation(QtCore.QThread):
         experimental_data.image_cleared[740] = experimental_data.image[740].astype(np.uint16)
         experimental_data.image_cleared[740] = self.ConvertTo8Bit(experimental_data.image_cleared[740],
                                                                   experimental_data.max_image_value)
+        #update mask image 
 
     def run(self):
         while self.is_stop == False:
