@@ -6,7 +6,7 @@ import collections
 class ExperimentalData(object):
 
     def __init__(self):
-        self.image = {}
+        self.image = {} 
         self.image_temp = {}
         self.image_glare_prev = {}
         self.image_cleared = {}
@@ -18,9 +18,7 @@ class ExperimentalData(object):
         self.mode = set()
         self.graph_image_data = {}
         self.graph_image_superposition_data = {}
-        self.glare_status = collections.deque(maxlen=2)
         self.task_pool = []
-        self.motion_data = {}
         self.max_image_value = 0
         self.working_leds = []
         self.properties = Properties.Properties()
@@ -49,7 +47,7 @@ class ExperimentalData(object):
 
         self.skin_data[400]={}
         self.skin_data[660]={}
-
+        #
         self.tumor_data[400]={}
         self.tumor_data[660]={}
 

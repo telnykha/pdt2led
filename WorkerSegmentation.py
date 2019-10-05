@@ -7,16 +7,13 @@ import time
 import collections
 from PyQt4 import QtCore
 from grabCut import *
-
 import cv2
-import os
 
 class WorkerSegmentation(QtCore.QThread):
     image_segmented = QtCore.pyqtSignal(object)
     data=None
     q = collections.deque(maxlen=5)
     is_stop=False
-    tumor_cascade=None
     good_iterations={400:0, 660:0}
     total_iterations={400:0, 660:0}
     pauseCond = QtCore.QWaitCondition()
@@ -25,26 +22,8 @@ class WorkerSegmentation(QtCore.QThread):
 
     def __init__(self):
         QtCore.QThread.__init__(self)
-        self.tumor_cascade = cv2.CascadeClassifier(os.getcwd() +'\\HaarCascade\\cascade.xml')
         self.mutex=QtCore.QMutex()
 
-    def detect(self,gray):
-        #gray = cv2.equalizeHist(image)
-        tumors = self.tumor_cascade.detectMultiScale(gray, minSize=(15, 15))
-        indmax=-1
-        maxval=0
-        for i in range(len(tumors)):
-            x,y,w,h=tumors[i]
-            imcrop=gray[y:y+h,x:x+w]
-
-            if maxval<imcrop.mean():
-                maxval=imcrop.mean()
-                indmax=i
-
-        if indmax>=0:
-            return tumors[indmax]
-        else:
-            return None
 
     def ConvertTo8Bit(self, img, MaxVal):
         img = (img.astype(np.float) / MaxVal * 255).astype(np.uint8)
@@ -116,6 +95,44 @@ class WorkerSegmentation(QtCore.QThread):
         self.sync.lock()
         self.pause_state = True
         self.sync.unlock()
+    # work with "0" image
+    def processBackground(self, experimental_data, parameters, monitoring_data):
+        experimental_data.image_cleared[0] = experimental_data.image[0]
+        experimental_data.image_cleared_with_contours_rbg[0] = cv2.cvtColor(experimental_data.image[0],
+                                                                            cv2.COLOR_GRAY2RGB)
+        # этот код служит для поиска области в случае если не определен регион и включен лазер. или если включен режим слежения за терапевтическим лазером.
+        if (parameters.tumor_shadowing_type == "glare" and "region not defined" in experimental_data.mode) and "laser on" in experimental_data.mode and len(
+                experimental_data.image_glare_prev[0]) > 0:
+            experimental_data.image_cleared[0] = experimental_data.image_glare_prev[0][0]
+            experimental_data.image_cleared_with_contours_rbg[0] = cv2.cvtColor(
+                experimental_data.image_glare_prev[0][0], cv2.COLOR_GRAY2RGB)
+
+            for wl in (400, 660):
+                if wl in monitoring_data.tumor_area and len(
+                        monitoring_data.tumor_area[wl]) > 0 and "region defined" in experimental_data.mode:
+                    glare_area = monitoring_data.tumor_area[wl][-1]
+                    current_level = find_glare_level_for_image(experimental_data.image_glare_prev[0][0], glare_area,
+                                                               parameters.x_mm_in_pixel, parameters.y_mm_in_pixel)
+                    contour = contour_from_level(experimental_data.image_glare_prev[0][0], current_level)
+                else:
+                    contour = contour_from_level(experimental_data.image_glare_prev[0][0],
+                                                 experimental_data.max_image_value - parameters.glare_parameters[
+                                                     "dmin_glare_value"])
+                tumor_poly = [[c[0][0], c[0][1]] for c in contour]
+                if "mask" not in experimental_data.tumor_data[wl]:
+                    experimental_data.tumor_data[wl]["mask"] = np.zeros(experimental_data.image_cleared[0].shape,
+                                                                        np.uint8)
+
+                # Сделать смещение маски кожи
+                experimental_data.tumor_data[wl]["poly"] = tumor_poly
+                experimental_data.tumor_data[wl]["mask"][:] = 0
+                cv2.fillPoly(experimental_data.tumor_data[wl]["mask"],
+                             [np.asarray(experimental_data.tumor_data[wl]["poly"])], 1)
+        #work with 740 nm
+    def process740(self, experimental_data):
+        experimental_data.image_cleared[740] = experimental_data.image[740].astype(np.uint16)
+        experimental_data.image_cleared[740] = self.ConvertTo8Bit(experimental_data.image_cleared[740],
+                                                                  experimental_data.max_image_value)
 
     def run(self):
         while self.is_stop == False:
@@ -126,58 +143,15 @@ class WorkerSegmentation(QtCore.QThread):
                 parameters = qtask[2]
                 wavelength = task.wavelength
                 monitoring_data = qtask[3]
-
+                #wait until experimental_data is locked
                 while(experimental_data.is_locked):
-                    # print "experimental_data.is_locked:", experimental_data.is_locked
                     time.sleep(0.1)
-
+                #process backeground
                 if wavelength == 0:
-                    experimental_data.image_cleared[0] = experimental_data.image[0]
-                    experimental_data.image_cleared_with_contours_rbg[0] = cv2.cvtColor(experimental_data.image[0],cv2.COLOR_GRAY2RGB)
-
-                    if (parameters.tumor_shadowing_type == "glare" or "region not defined" in experimental_data.mode) and "laser on" in experimental_data.mode and len(experimental_data.image_glare_prev[0]) > 0:
-                        experimental_data.image_cleared[0] = experimental_data.image_glare_prev[0][0]
-                        experimental_data.image_cleared_with_contours_rbg[0] = cv2.cvtColor(experimental_data.image_glare_prev[0][0],cv2.COLOR_GRAY2RGB)
-
-                        for wl in (400,660):
-                            if wl in monitoring_data.tumor_area and len(monitoring_data.tumor_area[wl]) > 0 and "region defined" in experimental_data.mode:
-                                glare_area = monitoring_data.tumor_area[wl][-1]
-                                # print "glare_area: ",glare_area
-                                current_level = find_glare_level_for_image(experimental_data.image_glare_prev[0][0], glare_area, parameters.x_mm_in_pixel, parameters.y_mm_in_pixel)
-                                contour = contour_from_level(experimental_data.image_glare_prev[0][0], current_level)
-                            else:
-                                contour = contour_from_level(experimental_data.image_glare_prev[0][0], experimental_data.max_image_value - parameters.glare_parameters["dmin_glare_value"])
-
-                            tumor_poly = [[c[0][0],c[0][1]] for c in contour]
-                            if "mask" not in experimental_data.tumor_data[wl]:
-                                experimental_data.tumor_data[wl]["mask"] = np.zeros(experimental_data.image_cleared[0].shape, np.uint8)
-
-                            # Сделать смещение маски кожи
-                            experimental_data.tumor_data[wl]["poly"] = tumor_poly
-                            experimental_data.tumor_data[wl]["mask"][:] = 0
-                            cv2.fillPoly(experimental_data.tumor_data[wl]["mask"], [np.asarray(experimental_data.tumor_data[wl]["poly"])], 1)
-
-                            # Сделать определение маски кожи
-
-                            # experimental_data.skin_data[wavelength]["mask"]=np.ones(experimental_data.image_cleared[wavelength].shape)
-                            #
-                            # experimental_data.image_cleared_with_contours_rbg[wavelength]=cv2.cvtColor(experimental_data.image_cleared[wavelength],cv2.COLOR_GRAY2BGR)
-                            # experimental_data.tumor_data[wavelength]['image'] = experimental_data.image_cleared[wavelength]*experimental_data.tumor_data[wavelength]["mask"]
-                            #
-                            # if experimental_data.skin_data[wavelength]["mask"].sum()>0:
-                            #     if experimental_data.tumor_data[wavelength]["mask"].sum()>0:
-                            #         diff_mask = experimental_data.skin_data[wavelength]["mask"].astype(np.float)-experimental_data.tumor_data[wavelength]["mask"].astype(np.float)
-                            #         diff_mask[diff_mask < 0] = 0
-                            #         experimental_data.skin_data[wavelength]["image"] = experimental_data.image_cleared[wavelength] * diff_mask.astype(np.uint16)
-                            #     else:
-                            #         experimental_data.skin_data[wavelength]["image"] = experimental_data.image_cleared[wavelength] * experimental_data.skin_data[wavelength]["mask"]
-                            # else:
-                            #     experimental_data.skin_data[wavelength]["image"] = np.zeros(experimental_data.image_cleared[wavelength].shape,np.uint16)
-
-                if wavelength==740:
-                    experimental_data.image_cleared[740] = experimental_data.image[740].astype(np.uint16)
-                    experimental_data.image_cleared[740] = self.ConvertTo8Bit(experimental_data.image_cleared[740],experimental_data.max_image_value)
-
+                    self.processBackground(experimental_data, parameters, monitoring_data)
+                if wavelength == 740:
+                        self.process740(experimental_data)
+                #process 660 and 400 nm
                 if wavelength in (660,400):
                     t1 = time.clock()
                     self.total_iterations[wavelength] += 1
@@ -190,12 +164,12 @@ class WorkerSegmentation(QtCore.QThread):
                         experimental_data.image_cleared[wavelength][experimental_data.image_cleared[wavelength] < 0] = 0
                     else:
                         experimental_data.image_cleared[wavelength] = image
-
+                    # преобразование полутонового изображение в многоцветоное
                     experimental_data.image_cleared[wavelength] = experimental_data.image_cleared[wavelength].astype(np.uint16)
                     experimental_data.image_cleared_with_contours_rbg[wavelength] = cv2.cvtColor(experimental_data.image_cleared[wavelength].copy(),cv2.COLOR_GRAY2RGB)
 
                     self.good_iterations[wavelength]=self.good_iterations[wavelength]+1
-
+                    #process monitoring
                     if "monitoring" not in experimental_data.mode:
                         # Вычисление опухоли
                         if "region defined" in experimental_data.mode:
@@ -218,7 +192,6 @@ class WorkerSegmentation(QtCore.QThread):
                                 cv2.polylines(experimental_data.image_cleared_with_contours_rbg[wavelength],[np.array(experimental_data.skin_data[wavelength]["poly"], np.int32)],False,experimental_data.skin_data["color"],experimental_data.skin_data["thickness"])
 
                             experimental_data.tumor_data[wavelength]['image'] = experimental_data.image_cleared[wavelength] * experimental_data.tumor_data[wavelength]['mask']
-
                             experimental_data.tumor_data[wavelength]['image'] = experimental_data.tumor_data[wavelength]['image'].astype(np.uint16)
                             cv2.polylines(experimental_data.image_cleared_with_contours_rbg[wavelength],[np.array(experimental_data.tumor_data[wavelength]["poly"], np.int32)],False,experimental_data.tumor_data["color"],experimental_data.tumor_data["thickness"])
 
@@ -256,14 +229,14 @@ class WorkerSegmentation(QtCore.QThread):
                         experimental_data.image_superposition_rgb[wavelength] = None
 
                     t2 = time.clock()
-                    print "Processing image wavelength={wavelength}, {t} s. Pool length {len_pool}".format(t=t2-t1, wavelength=wavelength, len_pool=len(self.q))
+                    #print "Processing image wavelength={wavelength}, {t} s. Pool length {len_pool}".format(t=t2-t1, wavelength=wavelength, len_pool=len(self.q))
+                    print len(experimental_data.image[740])
 
 
                     if "region defined" in experimental_data.mode:
                         self.CalculateProperties(wavelength, experimental_data, parameters)
 
                 t2 = time.clock()
-
                 self.image_segmented.emit((task))
 
         self.q.clear()

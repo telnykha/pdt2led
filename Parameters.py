@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 import codecs
 import os
-import itertools
-from win32com.client import constants
 from win32com.shell import shell, shellcon
 
 
@@ -43,10 +41,12 @@ class Parameters(object):
         self.grabcut_skin_coeff = 0.25
         self.skin_good_iterations_calculate = {660: 2, 400: 2}  # сколько раз автоматически определять кожу
         self.tumor_good_iterations_rectangle_calculate = {660: 5, 400: 5}  # сколько раз автоматически определять прямоугольник
-
+        #параметры обнаружения засветки терапевтическим лазером.
+        #excess_count - пороговое число завеченных точек
+        #dmin_glare_value - порог яркости пикселя
         self.glare_parameters = {"excess_count": 1000, "dmin_glare_value": 1000}
 
-        self.alarm_levels = {660: 0, 400: 0}
+        self.alarm_levels = {660: 10, 400: 10}
 
         self.calibration_distance = 85  # mm
         self.livemode_leds = []

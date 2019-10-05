@@ -94,6 +94,9 @@ class Monitoring:
                 self.skin_mean_intens[wavelength].append(prop.skin_mean_intens[wavelength])
                 self.tumor_max[wavelength].append(prop.tumor_max_intens[wavelength])
 
+            print self.tumor_mean[wavelength][-1], self.tumor_mean[wavelength][0]
+            print self.tumor_mean[wavelength]
+
             if self.skin_mean_intens[wavelength][-1] > 0:
                 self.contrast[wavelength].append(self.tumor_mean[wavelength][-1]/self.skin_mean_intens[wavelength][-1])
             burn = 1 - self.tumor_mean[wavelength][-1]/self.tumor_mean[wavelength][0]

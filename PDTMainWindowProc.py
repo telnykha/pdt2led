@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from PDTMainWindow import *
-import os
+import sys
 import QLed
 from PyQt4 import QtGui, QtCore, Qt
 import WorkerHardware
@@ -32,6 +32,8 @@ import win32security
 import ntsecuritycon as con
 import os
 
+
+
 DEBUG_MODE = True
 
 # engine = PyQtEngine()
@@ -59,7 +61,6 @@ class PDTMainWindowProc(QtGui.QWidget):
 
     def __init__(self, parent=None):
         super(PDTMainWindowProc, self).__init__(parent)
-
         self.ui = Ui_Form()
         self.ui.setupUi(self)
 
@@ -77,6 +78,13 @@ class PDTMainWindowProc(QtGui.QWidget):
         # self.ui.groupBoxFluor.setStyleSheet("QGroupBox {border:1px solid rgb(0, 0, 0); }")
         # self.ui.groupBoxMonitoring.setStyleSheet("QGroupBox {border:1px solid rgb(0, 0, 0); }")
 
+        #self.ui.graph_image_superposition.ui.histogram.hide()
+        self.ui.graph_image_superposition.ui.roiBtn.hide()
+        self.ui.graph_image_superposition.ui.menuBtn.hide()
+        self.ui.graph_image.ui.roiBtn.hide()
+        self.ui.graph_image.ui.menuBtn.hide()
+
+
         self.ui.widget_led660.setOnColour(QLed.QLed.Red)
         self.ui.widget_led660.clicked.connect(self.ui.widget_led660.toggleValue)
         self.ui.widget_led660.toggleValue()
@@ -89,11 +97,11 @@ class PDTMainWindowProc(QtGui.QWidget):
         self.ui.widget_led400.clicked.connect(self.ui.widget_led400.toggleValue)
         self.ui.widget_led400.toggleValue()
 
-        str = os.getcwdu() + u'\\Additional\\RecordOFF.png'
+        str = os.getcwdu() + '\\Additional\\RecordOFF.png'
         self.ui.pRecord.setIcon(QtGui.QIcon(str))
         self.ui.pRecord.setIconSize(QtCore.QSize(32, 32))
 
-        str = os.getcwdu() + u'\\Additional\\photo.png'
+        str = os.getcwdu() + '\\Additional\\photo.png'
         self.ui.pSaveState.setIcon(QtGui.QIcon(str))
         self.ui.pSaveState.setIconSize(QtCore.QSize(60, 60))
 
@@ -115,11 +123,8 @@ class PDTMainWindowProc(QtGui.QWidget):
         self.ui.e740Exposition.editingFinished.connect(self.exposition_changed)
         self.ui.ePeriod.editingFinished.connect(self.exposition_changed)
         self.ui.eCameraExposition.editingFinished.connect(self.exposition_changed)
-        # self.ui.edit_full_name.textEdited.connect(self.parse_parameters_from_form)
 
         self.ui.cNoneNormilize.clicked.connect(self.check_use_black_image_clicked)
-        self.ui.graph_image.getImageItem().setAutoDownsample(True)
-        self.ui.graph_image_superposition.getImageItem().setAutoDownsample(True)
 
         self.ui.pBlueSingle.clicked.connect(self.push_single_frame_400_clicked)
         self.ui.pRedSingle.clicked.connect(self.push_single_frame_660_clicked)
@@ -143,7 +148,7 @@ class PDTMainWindowProc(QtGui.QWidget):
         self.ui.pStopMonitoring.setEnabled(False)
         self.ui.pResetMonitoring.setEnabled(False)
 
-        self.ui.label_status.setText("")
+        self.ui.label_status.setText(u"ВЫКЛ")
         self.ui.label_properties.setText("")
 
         self.parameters.all_binnings = {"1x1 (1280x960)": (960, 1280, constants.BIN_NONE),
@@ -216,7 +221,7 @@ class PDTMainWindowProc(QtGui.QWidget):
 
     def push_record_clicked(self):
         if self.ui.pRecord.isChecked():
-            str = os.getcwdu() + u'\\Additional\\RecordON.png'
+            str = os.getcwdu() + '\\Additional\\RecordON.png'
             self.ui.pRecord.setIcon(QtGui.QIcon(str))
             self.parameters.is_logging = True
             self.parameters.TimeBegin = time.clock()
@@ -228,12 +233,12 @@ class PDTMainWindowProc(QtGui.QWidget):
 
             log_result = self.logging()
             if not log_result:
-                errorstr = u"Недостаточно места на диске. Сохранение будет отменено"
+                errorstr = "Недостаточно места на диске. Сохранение будет отменено"
                 QtGui.QMessageBox.about(self.ui.tabWidget, "Warning", errorstr)
                 self.ui.pRecord.setChecked(False)
                 self.push_record_clicked()
         else:
-            str = os.getcwdu() + u'\\Additional\\RecordOFF.png'
+            str = os.getcwdu() + '\\Additional\\RecordOFF.png'
             self.ui.pRecord.setIcon(QtGui.QIcon(str))
             self.parameters.is_logging = False
 
@@ -257,6 +262,15 @@ class PDTMainWindowProc(QtGui.QWidget):
         if self.ui.rShadowingGlare.isChecked() == True:
             self.ui.parameters.tumor_shadowing_type = "glare"
 
+    def change_main_interface(self, value):
+        if value == True:
+            # srart pressed
+            self.ui.pManual.setEnabled(False)
+            self.ui.pResetRegion.setEnabled(False)
+        else:
+            self.ui.pManual.setEnabled(True)
+            self.ui.pResetRegion.setEnabled(True)
+
     def push_start_clicked(self):
         if self.ui.pStart.isChecked() == True:
             self.worker_hardware.is_stop = False
@@ -265,7 +279,7 @@ class PDTMainWindowProc(QtGui.QWidget):
 
             self.set_fluorcontroller_base_mode()
             self.change_param_interface_state(False)
-
+            self.change_main_interface(True)
             self.worker_hardware.working_leds = self.experimental_data.working_leds
             self.ui.pStart.setText(u"СТОП")
             self.clock_timer.start(500)
@@ -277,12 +291,14 @@ class PDTMainWindowProc(QtGui.QWidget):
 
             self.fluorcontroller_stop()
             self.change_param_interface_state(True)
+            self.change_main_interface(False)
 
             self.ui.pStart.setText(u"СТАРТ")
             self.worker_hardware.is_stop = True
 
             self.clock_timer.stop()
             self.save_parameters()
+
             if os.path.isfile("logging_storage.pkl"):
                 os.remove("logging_storage.pkl")
 
@@ -297,7 +313,7 @@ class PDTMainWindowProc(QtGui.QWidget):
                 if x >= 0 and y >= 0 and x < self.experimental_data.image_cleared[wavelength].shape[0] and y < \
                         self.experimental_data.image_cleared[wavelength].shape[1]:
                     val = self.experimental_data.image_cleared[wavelength][x, y]
-                    self.ui.lValue.setText(u"x=%d,y=%d, ур. = %4.1f" % (x, y, val))
+                    self.ui.groupBox.setTitle(u"Флуоресцентное изображение x=%d,y=%d, ур. = %4.1f" % (x, y, val))
 
     def check_glare(self, image):
         if len(np.where(image >= self.experimental_data.max_image_value - self.parameters.glare_parameters["dmin_glare_value"])[0]) > self.parameters.glare_parameters["excess_count"]:
@@ -390,22 +406,17 @@ class PDTMainWindowProc(QtGui.QWidget):
         if self.monitoring.contrast and wavelength in self.monitoring.contrast and len(self.monitoring.contrast[wavelength]) > 0:
             str_properties += u"\nКонтраст: {contrast:3.2f}".format(contrast=self.monitoring.contrast[wavelength][-1])
 
-                    # for w, frames_count in self.monitoring.frames_count.iteritems():
-                    #     str_properties += u"\nКоличество кадров {wavelength} нм: {frames_count}".format(wavelength=w, frames_count=frames_count)
-
-                    # print str_properties
-
         self.ui.label_properties.setText(str_properties)
 
         if 'laser on' in self.experimental_data.mode:
-            self.ui.label_status.setText(u"Лазер включен")
+            self.ui.label_status.setText(u"<font color='red'>ВКЛ</font>")
         else:
-            self.ui.label_status.setText(u"")
+            self.ui.label_status.setText(u"<font color='green'>ВЫКЛ</font>")
 
         if 'region not defined' in self.experimental_data.mode:
-            self.ui.label_region_defined.setText(u"<font color='red'>Область свечения не определена</font>")
+            self.ui.label_region_defined.setText(u"<font color='red'>Не задана</font>")
         else:
-            self.ui.label_region_defined.setText(u"<font color='green'>Область свечения определена</font>")
+            self.ui.label_region_defined.setText(u"<font color='green'>Задана</font>")
 
     def image_show(self,where_show,what_show, **kwargs):
         # where_show.clear()
@@ -436,7 +447,7 @@ class PDTMainWindowProc(QtGui.QWidget):
                     self.experimental_data.mode.remove("laser off")
                     self.experimental_data.mode.add("laser on")
                     self.set_fluorcontroller_laser_on_mode()
-                    self.ui.label_status.setText(u"Лазер включён!!!!")
+                    self.ui.label_status.setText(u"ВКЛ")
                 ### Старт только черный
             else:
                 if "laser on" in self.experimental_data.mode:
@@ -444,11 +455,11 @@ class PDTMainWindowProc(QtGui.QWidget):
                     self.experimental_data.task_pool = []
                     self.experimental_data.mode.remove("laser on")
                     self.experimental_data.mode.add("laser off")
-                    if "region not defined" in self.experimental_data.mode:
-                        self.experimental_data.mode.remove("region not defined")
-                        self.experimental_data.mode.add("region defined")
+                    #if "region not defined" in self.experimental_data.mode:
+                    #   self.experimental_data.mode.remove("region not defined")
+                    #   self.experimental_data.mode.add("region defined")
 
-                    self.ui.label_status.setText(u"")
+                    self.ui.label_status.setText(u"ВЫКЛ")
                     self.set_fluorcontroller_base_mode()
 
                 if "laser off" in self.experimental_data.mode:
@@ -511,10 +522,14 @@ class PDTMainWindowProc(QtGui.QWidget):
 
     def push_manual_mode_clicked(self):
         wavelength = self.get_selected_image_wavelength_on_graph_image()
+        image_for_manual_input = None
         if wavelength is not None:
             if self.experimental_data.image_cleared[wavelength] is not None:
                 image_for_manual_input = self.experimental_data.image_cleared[wavelength].copy()
         else:
+            return
+
+        if image_for_manual_input is None:
             return
 
         self.experimental_data.is_locked = True
@@ -674,7 +689,9 @@ class PDTMainWindowProc(QtGui.QWidget):
                         self.experimental_data.mode.add("region defined")
 
             QtGui.qApp.processEvents()
-
+        #todo: update UI
+        if "region defined" in self.experimental_data.mode:
+            self.update_data_on_screen()
         self.experimental_data.is_locked = False
 
     @background
@@ -685,7 +702,7 @@ class PDTMainWindowProc(QtGui.QWidget):
         try:
 
             Folder = self.parameters.base_logging_folder + "\\" + self.parameters.full_name + "\\Full\\"
-            Folder = Folder.encode('cp1251', 'ignore')
+            #Folder = Folder.encode('cp1251', 'ignore')
             if not os.path.exists(Folder):
                 os.makedirs(Folder)
             if self.parameters.save_full_protocol:
@@ -735,10 +752,11 @@ class PDTMainWindowProc(QtGui.QWidget):
             t = datetime.datetime.now()
             for (key, img) in self.experimental_data.image.iteritems():
                 if img is not None:
-                    img = self.convert_to_8bit(img, self.experimental_data.max_image_value)
+                    #img = self.convert_to_8bit(img, self.experimental_data.max_image_value)
                     filename = Folder + t.strftime("%Y-%m-%d %H-%M-%S") + "_" + str(key) + ".tiff"
-                    filename_rel = "\\Full\\" + t.strftime("%Y-%m-%d %H-%M-%S") + "_" + str(key) + ".tiff"
-                    tiff.imsave(filename, img.transpose(), compress=1)
+                    filename_rel = u"\\Full\\" + t.strftime("%Y-%m-%d %H-%M-%S") + "_" + str(key) + ".tiff"
+                    #tiff.imsave(filename, img.transpose(), compress=1)
+                    tiff.imsave(filename, img, compress=1)
                     info_to_store['image_filenames'][key] = filename
                     info_to_store['image_filenames_rel'][key] = filename_rel
 
@@ -747,14 +765,15 @@ class PDTMainWindowProc(QtGui.QWidget):
                 if img is not None:
                     filename = Folder + t.strftime("%Y-%m-%d %H-%M-%S") + "_superposition_" + str(key) + ".tiff"
                     filename_rel = "\\Full\\" + t.strftime("%Y-%m-%d %H-%M-%S") + "_superposition_" + str(key) + ".tiff"
-                    tiff.imsave(filename, img.transpose(), compress=1)
+                    #tiff.imsave(filename, img.transpose(), compress=1)
+                    tiff.imsave(filename, img, compress=1)
                     info_to_store['image_superposition_filenames'][key] = filename
                     info_to_store['image_superposition_filenames_rel'][key] = filename_rel
 
             self.logging_data_storage['info'].append(info_to_store)
 
             Folder = self.parameters.base_logging_folder + "\\" + self.parameters.full_name + "\\"
-            Folder = Folder.encode('cp1251', 'ignore')
+            #Folder = Folder.encode('cp1251', 'ignore')
             if not os.path.exists(Folder):
                 os.makedirs(Folder)
 
@@ -770,7 +789,7 @@ class PDTMainWindowProc(QtGui.QWidget):
         try:
             Folder = self.parameters.base_logging_folder + "\\" + self.parameters.full_name + "\\"
             self.parameters.save(Folder)
-            Folder = Folder.encode('cp1251', 'ignore')
+            #Folder = Folder.encode('cp1251', 'ignore')
             if not os.path.exists(Folder):
                 os.makedirs(Folder)
 
@@ -841,8 +860,8 @@ class PDTMainWindowProc(QtGui.QWidget):
     def save_monitoring_data(self, parameters):
         try:
             if not self.monitoring.is_empty():
-                Folder = self.parameters.base_logging_folder + "\\" + self.parameters.full_name + "\\"
-                Folder = Folder.encode('cp1251', 'ignore')
+                Folder = self.parameters.base_logging_folder + u"\\" + self.parameters.full_name + u"\\"
+                #Folder = Folder.encode('cp1251', 'ignore')
                 if not os.path.exists(Folder):
                     os.makedirs(Folder)
                 self.monitoring.save(parameters, Folder)
@@ -1188,9 +1207,9 @@ class PDTMainWindowProc(QtGui.QWidget):
 
                     Cont = False
 
-                    # Folder = os.getcwd() + "\\" + unicode(self.ui.eLoggingFolder.text()) + u"\\_ОДИНОЧНЫЕ КАДРЫ"
-                    Folder = unicode(self.ui.eLoggingFolder.text()) + u"\\_ОДИНОЧНЫЕ КАДРЫ"
-                    Folder = Folder.encode('cp1251', 'ignore')
+                    # Folder = os.getcwd() + "\\" + unicode(self.ui.eLoggingFolder.text()) + "\\_ОДИНОЧНЫЕ КАДРЫ"
+                    Folder = unicode(self.ui.eLoggingFolder.text()) + "\\_ОДИНОЧНЫЕ КАДРЫ"
+                    #Folder = Folder.encode('cp1251', 'ignore')
                     if not os.path.exists(Folder):
                         os.makedirs(Folder)
 
@@ -1252,8 +1271,8 @@ class PDTMainWindowProc(QtGui.QWidget):
                     Cont = False
 
                     # Folder = os.getcwd() + "\\" + unicode(self.ui.eLoggingFolder.text()) + u"\\_ОДИНОЧНЫЕ КАДРЫ"
-                    Folder = unicode(self.ui.eLoggingFolder.text()) + u"\\_ОДИНОЧНЫЕ КАДРЫ"
-                    Folder = Folder.encode('cp1251', 'ignore')
+                    Folder = unicode(self.ui.eLoggingFolder.text()) + "\\_ОДИНОЧНЫЕ КАДРЫ"
+                    #Folder = Folder.encode('cp1251', 'ignore')
                     if not os.path.exists(Folder):
                         os.makedirs(Folder)
 
@@ -1311,8 +1330,8 @@ class PDTMainWindowProc(QtGui.QWidget):
                     Cont = False
 
                     # Folder = os.getcwd() + "\\" + unicode(self.ui.eLoggingFolder.text()) + u"\\_ОДИНОЧНЫЕ КАДРЫ"
-                    Folder = unicode(self.ui.eLoggingFolder.text()) + u"\\_ОДИНОЧНЫЕ КАДРЫ"
-                    Folder = Folder.encode('cp1251', 'ignore')
+                    Folder = unicode(self.ui.eLoggingFolder.text()) + "\\_ОДИНОЧНЫЕ КАДРЫ"
+                    #Folder = Folder.encode('cp1251', 'ignore')
                     if not os.path.exists(Folder):
                         os.makedirs(Folder)
 
@@ -1369,8 +1388,8 @@ class PDTMainWindowProc(QtGui.QWidget):
                     Cont = False
 
                     # Folder = os.getcwd() + "\\" + unicode(self.ui.eLoggingFolder.text()) + u"\\_ОДИНОЧНЫЕ КАДРЫ"
-                    Folder = unicode(self.ui.eLoggingFolder.text()) + u"\\_ОДИНОЧНЫЕ КАДРЫ"
-                    Folder = Folder.encode('cp1251', 'ignore')
+                    Folder = unicode(self.ui.eLoggingFolder.text()) + "\\_ОДИНОЧНЫЕ КАДРЫ"
+                    #Folder = Folder.encode('cp1251', 'ignore')
                     if not os.path.exists(Folder):
                         os.makedirs(Folder)
 
@@ -1418,6 +1437,9 @@ class PDTMainWindowProc(QtGui.QWidget):
         if self.ui.rShadowingGlare.isChecked():
             self.parameters.tumor_shadowing_type = "glare"
 
+        if self.ui.rShadowingContour.isChecked():
+            self.parameters.tumor_shadowing_type = "contour"
+
     def load_experiment(self):
         filename = unicode(QtGui.QFileDialog.getOpenFileName(parent=self, caption='Open file', directory=self.ui.eLoggingFolder.text(), filter = "logging_storage.pkl"))
         if not filename:
@@ -1441,7 +1463,7 @@ class PDTMainWindowProc(QtGui.QWidget):
         self.apply_experimental_data_storage()
 
     def apply_experimental_data_storage(self):
-        self.ui.groupProtocol.resize(261, 101)
+        #self.ui.groupProtocol.resize(261, 101)
         self.ui.lExperimentFrame.setText(u"Кадр № ")
         self.ui.lExperimentFrame_2.setText(u" из {total}".format(total=len(self.experimental_data_storage['info']) - 1))
         self.ui.spinFrameNumber.maximum = len(self.experimental_data_storage['info']) - 1
@@ -1480,7 +1502,7 @@ class PDTMainWindowProc(QtGui.QWidget):
                     imagefilename = self.experimental_data_storage["basefolder"] + self.experimental_data_storage['info'][ind]['image_superposition_filenames_rel'][wl]
 
                 if os.path.exists(imagefilename):
-                    self.experimental_data.image_superposition_rgb[wl] = cv2.imread(imagefilename.encode('cp1251', 'ignore'))
+                    self.experimental_data.image_superposition_rgb[wl] = cv2.imread(imagefilename.encode('cp1251', 'ignore')) #utf-8 cp1251
 
 
 
@@ -1500,8 +1522,8 @@ class PDTMainWindowProc(QtGui.QWidget):
 
                 # Вычитание фона
                 if self.experimental_data.image[0] is not None:
-                    self.experimental_data.image_cleared[wl] = image - self.parameters.use_black_image * self.experimental_data.image[0]
-                    self.experimental_data.image_cleared[wl][self.experimental_data.image_cleared[wl] < 0] = 0
+                   self.experimental_data.image_cleared[wl] = image - self.parameters.use_black_image * self.experimental_data.image[0]
+                   self.experimental_data.image_cleared[wl][self.experimental_data.image_cleared[wl] < 0] = 0
                 else:
                     self.experimental_data.image_cleared[wl] = image.copy()
                 self.experimental_data.image_cleared_with_contours_rbg[wl] = self.experimental_data.image_cleared[wl].copy()
@@ -1626,13 +1648,6 @@ class PDTMainWindowProc(QtGui.QWidget):
                         frame = cv2.flip(frame, -1)
 
                     img.setImage(self.convert_to_8bit(frame, MaxVal))
-
-                    # img = pyqtgraph.ImageItem()
-                    # self.image_show(self.ui.graph_livemode, self.convert_to_8bit(frame, MaxVal))
-
-                    # cv2.imshow("Press Esc to exit...", self.convert_to_8bit(frame, MaxVal))
-                    # if cv2.waitKey(10) == 0x1b:  # ESC
-                    #     Cont = False
 
             except Exception, e:
                 print e.message
@@ -1779,7 +1794,7 @@ class PDTMainWindowProc(QtGui.QWidget):
         self.ui.groupBoxLedSources.setEnabled(state)
         self.ui.groupBoxProtocol.setEnabled(state)
         self.ui.groupWatch.setEnabled(state)
-        self.ui.groupInterface.setEnabled(state)
+        #self.ui.groupInterface.setEnabled(state)
 
     def change_param_working_state(self,state):
         self.ui.pStart.setEnabled(state)

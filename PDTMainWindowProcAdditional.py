@@ -3,7 +3,6 @@
 
 
 from PDTMainWindow import *
-import cPickle
 import numpy
 import cPickle
 

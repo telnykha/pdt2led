@@ -1,1 +1,1 @@
-pyuic4 PDTMainWindow.ui  -o PDTMainWindow.py
+C:\Python27\Lib\site-packages\PyQt4\pyuic4 PDTMainWindow.ui  -o PDTMainWindow.py
