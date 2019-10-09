@@ -28,8 +28,6 @@ import pyqtgraph
 import threading
 import Queue
 import itertools
-import win32security
-import ntsecuritycon as con
 import os
 
 
@@ -519,9 +517,11 @@ class PDTMainWindowProc(QtGui.QWidget):
             self.experimental_data.mode.add("region not defined")
 
         self.experimental_data.properties.__init__()
+        self.experimental_data.Clear()
+        self.update_data_on_screen()
 
     def push_manual_mode_clicked(self):
-        wavelength = self.get_selected_image_wavelength_on_graph_image()
+        wavelength = 740 #self.get_selected_image_wavelength_on_graph_image()
         image_for_manual_input = None
         if wavelength is not None:
             if self.experimental_data.image_cleared[wavelength] is not None:
@@ -668,7 +668,7 @@ class PDTMainWindowProc(QtGui.QWidget):
         cv2.waitKey()
 
         if manual_input_parameters["is_tumor_poly_over"] and manual_input_parameters["is_skin_poly_over"]:
-            for wavelength in (400, 660):
+            for wavelength in (400, 660, 740):
                 if self.experimental_data.image_cleared[wavelength] is not None:
                     self.experimental_data.tumor_data[wavelength]["mask"] = numpy.zeros(self.experimental_data.image_cleared[wavelength].shape)
                     self.experimental_data.skin_data[wavelength]["mask"] = numpy.zeros(self.experimental_data.image_cleared[wavelength].shape)

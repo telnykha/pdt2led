@@ -47,7 +47,7 @@ class WorkerHardware(QtCore.QThread):
 
                 # task.wavelength = self.working_leds[frame_num % len(self.working_leds)]
                 # print "frame_num, task.wavelength: ",frame_num, task.wavelength
-                print "Time of getting image from the setup {t} s. Camera buffer {buffer} frames".format(t=t2-t1, buffer=self.fluocontrollers.storage_controller.GetCount())
+                #print "Time of getting image from the setup {t} s. Camera buffer {buffer} frames".format(t=t2-t1, buffer=self.fluocontrollers.storage_controller.GetCount())
                 LightingStr = str(frame_num) + ". lighting_controller is: "
 
                 if LightingCode == constants.LM_NONE:

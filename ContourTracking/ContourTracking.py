@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import cv2 as cv
 import numpy as np
 from pyqtgraph import FileDialog
@@ -74,9 +76,11 @@ def getPictTrue(name, i, wl):
 
 # WRAPPER
 def trackContourPyrLK(pictPrev, pictNext, ptsPrev, winSize, maxLevel):
+    criteria = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03)
     ptsTracked, status, err = cv.calcOpticalFlowPyrLK(pictPrev, pictNext,
-                                                      np.float32([tr[-1] for tr in ptsPrev]).reshape(-1, 1, 2),
-                                                      None, winSize=winSize, maxLevel=maxLevel)
+                                                     ptsPrev, #np.float32([tr[-1] for tr in ptsPrev]).reshape(-1, 1, 2),
+                                                      None, winSize=winSize, maxLevel=maxLevel, criteria=criteria)
+
     return ptsTracked
 
 
@@ -96,7 +100,6 @@ def get740picts(name, begin, end):
 # cont = tr2p()
 def trackOneStep(pictPrev, ptsPrev, pictNext, winSize, maxLevel, delta):
     ptsNext = trackContourPyrLK(pictPrev, pictNext, ptsPrev, winSize, maxLevel)
-
     ptsTrackedBack = trackContourPyrLK(pictNext, pictPrev, ptsNext, winSize, maxLevel)
 
     m, diff = cv.threshold(np.array([[(i ** 2 + j ** 2) ** (1 / 2.)]
@@ -110,16 +113,17 @@ def trackOneStepMeanShift(pictPrev, ptsPrev, pictNext, winSize, maxLevel, delta)
     ptsNext = trackContourPyrLK(pictPrev, pictNext, ptsPrev, winSize, maxLevel)
 
     ptsTrackedBack = trackContourPyrLK(pictNext, pictPrev, ptsNext, winSize, maxLevel)
-
     m, mask = cv.threshold(np.array([[(i ** 2 + j ** 2) ** (1 / 2.)]
             for [i, j] in abs(ptsPrev - ptsTrackedBack).reshape(-1, 2)]).astype(np.float32),
                            delta, 1, cv.THRESH_BINARY_INV)
-    if ptsPrev.shape[0] - np.sum(mask) <= ptsPrev.shape[0] / 2:  # everything OK, go to usual loop, null counters
+    if ptsPrev.shape[0] - np.sum(mask) <= 0.9*ptsPrev.shape[0] :  # everything OK, go to usual loop, null counters
         diff = np.array([i - j for (i, j, k) in zip(ptsNext.reshape(-1, 2), ptsPrev.reshape(-1, 2), mask) if k])
         numPoints = diff.shape[0]
         shift = [np.sum(diff[:, 0]) / numPoints, np.sum(diff[:, 1]) / numPoints]
+        print ptsPrev.shape[0] - np.sum(mask)
         return shift
     else:
+        print u"контур не найден"
         return []
 
 
@@ -127,14 +131,9 @@ def trackSeriesCompare740(winSize, maxLevel, delta, compare=False):
     name, begin, end = inputImages()
     vctPicts = get740picts(name, begin, end)
     vctPictsToShow = [(p * (maxIntensity / max(np.max(p).astype(np.float32), 1).astype(np.float32))).astype(np.uint8) for p in vctPicts]
-
-
     cv.namedWindow('contoured', cv.WINDOW_NORMAL)
-
     contPrev = contFirst = np.array(contourManual((vctPictsToShow[0]))).reshape((-1, 1, 2))
-
     maxDotsOut = contPrev.shape[0] / 2
-
     pictToShow = cv.cvtColor(vctPictsToShow[0], cv.COLOR_GRAY2RGB)
     cv.drawContours(pictToShow, [contPrev.astype(np.int32)], -1, CLR_RED, 3)
     cv.imshow('contoured', pictToShow)

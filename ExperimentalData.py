@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import Properties
 import collections
-
+import Tracker
 class ExperimentalData(object):
 
     def __init__(self):
@@ -47,9 +47,11 @@ class ExperimentalData(object):
 
         self.skin_data[400]={}
         self.skin_data[660]={}
+        self.skin_data[740]={}
         #
         self.tumor_data[400]={}
         self.tumor_data[660]={}
+        self.tumor_data[740]={}
 
         self.image_superposition_rgb[400]=None
         self.image_superposition_rgb[660]=None
@@ -71,3 +73,25 @@ class ExperimentalData(object):
         self.graph_image_superposition_data[0] = {}
         self.graph_image_superposition_data[400] = {}
         self.graph_image_superposition_data[660] = {}
+
+        self.tracker = Tracker.Tracker()
+
+    def Clear(self):
+        self.skin_data.clear()
+        self.tumor_data.clear()
+
+        self.skin_data[400]={}
+        self.skin_data[660]={}
+        self.skin_data[740]={}
+
+        self.tumor_data[400]={}
+        self.tumor_data[660]={}
+        self.tumor_data[740]={}
+
+        self.tumor_data["color"] = [0, 255, 0]#[0xCF, 0xff, 0x9a]
+        self.tumor_data["thickness"] = 5
+        self.skin_data["color"]  = [255, 255, 255]
+        self.skin_data["thickness"] = 5
+
+        self.tracker.Clear()
+

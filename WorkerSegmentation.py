@@ -128,12 +128,24 @@ class WorkerSegmentation(QtCore.QThread):
                 experimental_data.tumor_data[wl]["mask"][:] = 0
                 cv2.fillPoly(experimental_data.tumor_data[wl]["mask"],
                              [np.asarray(experimental_data.tumor_data[wl]["poly"])], 1)
-        #work with 740 nm
-    def process740(self, experimental_data):
+    #work with 740 nm
+    def process740(self, experimental_data, params):
         experimental_data.image_cleared[740] = experimental_data.image[740].astype(np.uint16)
         experimental_data.image_cleared[740] = self.ConvertTo8Bit(experimental_data.image_cleared[740],
                                                                   experimental_data.max_image_value)
-        #update mask image 
+        #update mask image
+        if "region defined" in experimental_data.mode and params.tumor_shadowing_type == "contour":
+            if experimental_data.tracker.Points is None:
+               experimental_data.tracker.Points = experimental_data.tumor_data[740]["poly"]
+            else:
+                experimental_data.tracker.track(experimental_data.image_cleared[740])
+                #if self.tracker.Result is not None:
+                experimental_data.tumor_data[740]["poly"] =  experimental_data.tracker.Points
+                experimental_data.tumor_data[400]["poly"] =  experimental_data.tracker.Points
+                experimental_data.tumor_data[660]["poly"] =  experimental_data.tracker.Points
+                experimental_data.tumor_data[400]["mask"] =  experimental_data.tracker.Mask
+                experimental_data.tumor_data[660]["mask"] =  experimental_data.tracker.Mask
+
 
     def run(self):
         while self.is_stop == False:
@@ -151,7 +163,7 @@ class WorkerSegmentation(QtCore.QThread):
                 if wavelength == 0:
                     self.processBackground(experimental_data, parameters, monitoring_data)
                 if wavelength == 740:
-                        self.process740(experimental_data)
+                        self.process740(experimental_data, parameters)
                 #process 660 and 400 nm
                 if wavelength in (660,400):
                     t1 = time.clock()
@@ -198,6 +210,7 @@ class WorkerSegmentation(QtCore.QThread):
 
                     # Наложение
                     if experimental_data.image_cleared[740] is not None:
+
                         if "region defined" in experimental_data.mode and experimental_data.tumor_data[wavelength]['image'] is not None and experimental_data.tumor_data[wavelength]['mask'].sum()>0:
                             #TODO: понять почему надо инвертировать изображение
                             if wavelength in monitoring_data.tumor_mean:
@@ -226,12 +239,16 @@ class WorkerSegmentation(QtCore.QThread):
 
                         else:
                             experimental_data.image_superposition_rgb[wavelength] = cv2.cvtColor(experimental_data.image_cleared[740], cv2.COLOR_GRAY2RGB)
+                        if "poly" in experimental_data.skin_data[740]:
+                            cv2.polylines(experimental_data.image_superposition_rgb[wavelength],
+                                          [np.array(experimental_data.tumor_data[wavelength]["poly"], np.int32)], False,
+                                          experimental_data.tumor_data["color"],
+                                          experimental_data.tumor_data["thickness"])
                     else:
                         experimental_data.image_superposition_rgb[wavelength] = None
 
                     t2 = time.clock()
-                    #print "Processing image wavelength={wavelength}, {t} s. Pool length {len_pool}".format(t=t2-t1, wavelength=wavelength, len_pool=len(self.q))
-                    print len(experimental_data.image[740])
+                    #print "Processing image wavelength={wavelength}, {t} s. Pool length {len_pool}".format(t=t2-t1, wavelength=wavelength, len_pool=len(self.q)
 
 
                     if "region defined" in experimental_data.mode:
