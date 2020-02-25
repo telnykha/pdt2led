@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import cv2
-from ContourTracking import ContourTracking
+from ContourTracking import tracking
 class Tracker(object):
     CurrentImage = None
     PrevImage    = None
@@ -27,7 +27,7 @@ class Tracker(object):
             self.PrevImage = self.CurrentImage
             self.CurrentImage = image
             p = np.array(self.Points, np.float32).reshape(-1, 2)
-            shift = ContourTracking.trackOneStepMeanShift(self.PrevImage, p, self.CurrentImage, self.winSize, self.maxLevel, self.delta)
+            shift = tracking.trackOneStepMeanShift(self.PrevImage, p, self.CurrentImage, self.winSize, self.maxLevel, self.delta)
             if not shift == []:  # everything OK, go to usual loop, null counters
                  self.Result = (p + shift)
                  self.Points = self.Result.tolist()

@@ -1474,7 +1474,7 @@ class PDTMainWindowProc(QtGui.QWidget):
             data = load_pickle_from_zip(data_filename)
         else:
             filename = os.path.basename(data_filename)
-            data_filename = self.experimental_data_storage["basefolder"] + "\\FULL\\"+filename
+            data_filename = self.experimental_data_storage["basefolder"] + "\\Full\\"+filename
             data = load_pickle_from_zip(data_filename)
 
         if 'experimental_data' in data:
@@ -1807,15 +1807,10 @@ class PDTMainWindowProc(QtGui.QWidget):
 
 
 def save_pickle_to_zip(obj, filename, protocol=cPickle.HIGHEST_PROTOCOL, compresslevel=1):
-    import time
     try:
-        t1 = time.time()
-        file = gzip.GzipFile(filename, 'wb', compresslevel)
-        t2 = time.time()
-        cPickle.dump(obj, file, protocol)
-        t3 = time.time()
-        file.close()
-        t4 = time.time()
+        fzip = gzip.GzipFile(filename, 'wb', compresslevel)
+        cPickle.dump(obj, fzip, protocol)
+        fzip.close()
 
         return True
     except Exception, e:
@@ -1825,15 +1820,8 @@ def save_pickle_to_zip(obj, filename, protocol=cPickle.HIGHEST_PROTOCOL, compres
 def load_pickle_from_zip(filename):
     """Loads a compressed object from disk
     """
-    t1 = time.time()
-    file = gzip.GzipFile(filename, 'rb')
-    t2 = time.time()
-    obj = cPickle.load(file)
-    t3 = time.time()
-    #
-    # print "file = gzip.GzipFile(filename, 'rb): ", t2 - t1
-    # print "obj = cPickle.load(file) ", t3 - t2
-
-    file.close()
+    unzip = gzip.GzipFile(filename, 'rb')
+    obj = cPickle.load(unzip)
+    unzip.close()
     return copy.deepcopy(obj)
 
