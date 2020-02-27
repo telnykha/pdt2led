@@ -1,15 +1,34 @@
 import argparse
+import configparser
 import os
 import shutil as sh
 
 # from loadPictures import getPictWavelength
 
+class DataBase:
+    # initializing rom config
+    def __init__(self):
+        # TODO
+        self.seriesQuantity = 0
+
+    def loadConfig(self, configPath):
+        # TODO
+        # TODO
+        config.read(baseDirect)
+
+    def incQuantity(self):
+        self.seriesQuantity +=1
+
+
+    def saveConfig(self, configPath):
+        # TODO
+        pass
 
 if __name__ == '__main__':
     cmdParser = argparse.ArgumentParser(
-        description='Create test series from existing preordered sequence(s) of'
+        description='Create test series from an existing preordered sequence of'
                     ' frames.\n'
-                    'Note that sequences must:\n'
+                    'Note that the sequence must:\n'
                     ' - be ordered by name\n'
                     ' - have \".tiff\" format\n'
                     ' - have \"_wl\" postfix for fluoImages where wl is'
@@ -29,3 +48,33 @@ if __name__ == '__main__':
                                 ' (default:False)')
 
     cmdArgs = cmdParser.parse_args()
+    baseDirect  = cmdArgs.dataBaseDirec
+    fileDirects = cmdArgs.fileDirec
+    isFluo      = cmdArgs.fluo
+    isBg        = cmdArgs.background
+
+# TODO: mb засунуть это в класс, а класс - в отд. файл
+    config = configparser.ConfigParser()
+    if not os.access(baseDirect, os.F_OK):
+        while True:
+            ans = input('DataBase directory doesn\'t exist. Create? (y/n)\n')
+            if ans is 'n':
+                exit(0)
+            elif ans is 'y':
+                break
+        os.mkdir(baseDirect)
+        dataBase = DataBase()
+        dataBase.saveConfig(baseDirect + '\\config.ini')
+    elif not os.access(baseDirect + '\\config.ini', os.F_OK):
+        while True:
+            ans = input('DataBase doesn\'t exist in this directory. Create new?'
+                        ' (y/n)\n')
+            if ans is 'n':
+                exit(0)
+            elif ans is 'y':
+                break
+        dataBase = DataBase()
+        dataBase.saveConfig(baseDirect + '\\config.ini')
+    else:
+        cmdParser.error('')
+
